@@ -23,10 +23,6 @@ function inCone(p1: Point, p2: Point, p3: Point, p: Point): boolean {
     }
 }
 
-function isInside(a: Point, b: Point, c: Point, p: Point) {
-    return !(area(a, p, b) <= 0 || area(b, p, c) <= 0 || area(c, p, a) <= 0);
-}
-
 function equals(a: Point, b: Point) {
     return a.x === b.x && a.y === b.y;
 }
