@@ -174,9 +174,16 @@ type PartitionVertex = {
     angleCos: number;
     prev?: PartitionVertex;
     next?: PartitionVertex;
+    index: number;
+    shouldUpdate: boolean;
 };
 
-function updateVertex(vertex: PartitionVertex) {
+function updateVertex(vertex: PartitionVertex, vertices: PartitionVertex[]) {
+    if (!vertex.shouldUpdate) {
+        return;
+    }
+    vertex.shouldUpdate = false;
+
     const v1 = vertex.prev!.point;
     const v2 = vertex.point;
     const v3 = vertex.next!.point;
@@ -197,14 +204,66 @@ function updateVertex(vertex: PartitionVertex) {
 
     if (vertex.isConvex) {
         vertex.isEar = true;
-        for (let curr = vertex.next!.next!; curr !== vertex.prev; curr = curr.next!) {
-            if (isInside(v1, v2, v3, curr.point)) {
+        for (let i = 0, len = vertices.length; i < len; ++i) {
+            const curr = vertices[i];
+            if (!curr.isActive || curr === vertex) {
+                continue;
+            }
+            if (equals(v1, curr.point) || equals(v2, curr.point) || equals(v3, curr.point)) {
+                continue;
+            }
+            const areaA = area(v1, curr.point, v2);
+            const areaB = area(v2, curr.point, v3);
+            const areaC = area(v3, curr.point, v1);
+            if (areaA > 0 && areaB > 0 && areaC > 0) {
                 vertex.isEar = false;
                 break;
+            }
+            if (areaA === 0 && areaB >= 0 && areaC >= 0) {
+                if (area(v1, curr.prev!.point, v2) > 0 || area(v1, curr.next!.point, v2) > 0) {
+                    vertex.isEar = false;
+                    break;
+                }
+            }
+            if (areaB === 0 && areaA >= 0 && areaC >= 0) {
+                if (area(v2, curr.prev!.point, v3) > 0 || area(v2, curr.next!.point, v3) > 0) {
+                    vertex.isEar = false;
+                    break;
+                }
+            }
+            if (areaC === 0 && areaA >= 0 && areaB >= 0) {
+                if (area(v3, curr.prev!.point, v1) > 0 || area(v3, curr.next!.point, v1) > 0) {
+                    vertex.isEar = false;
+                    break;
+                }
             }
         }
     } else {
         vertex.isEar = false;
+    }
+}
+
+function removeCollinearOrDuplicate(start: PartitionVertex) {
+    for (let curr = start, end = start; ;) {
+        if (
+            equals(curr.point, curr.next!.point)
+            || area(curr.prev!.point, curr.point, curr.next!.point) === 0
+        ) {
+            curr.prev!.next = curr.next;
+            curr.next!.prev = curr.prev;
+            curr.prev!.shouldUpdate = true;
+            curr.next!.shouldUpdate = true;
+            if (curr === curr.next!) {
+                break;
+            }
+            end = curr.prev!;
+            curr = curr.next!;
+            continue;
+        }
+        curr = curr.next!;
+        if (curr === end) {
+            break;
+        }
     }
 }
 
@@ -233,7 +292,9 @@ export function triangulate(polygon: Contour, doNotCheckOrdering: boolean = fals
             isConvex: false,
             isEar: false,
             point: polygon[i],
-            angleCos: 0
+            angleCos: 0,
+            shouldUpdate: true,
+            index: i
         });
     }
     for (let i = 0; i < len; ++i) {
@@ -241,7 +302,8 @@ export function triangulate(polygon: Contour, doNotCheckOrdering: boolean = fals
         vertex.prev = vertices[(i + len - 1) % len];
         vertex.next = vertices[(i + 1) % len];
     }
-    vertices.forEach(vertex => updateVertex(vertex));
+
+    vertices.forEach(vertex => updateVertex(vertex, vertices));
 
     for (let i = 0; i < len - 3; ++i) {
         let ear: PartitionVertex | null = null;
@@ -258,8 +320,20 @@ export function triangulate(polygon: Contour, doNotCheckOrdering: boolean = fals
                 ear = vertex;
             }
         }
+
         if (!ear) {
-            throw new Error('Failed to find ear');
+            for (let i = 0; i < len; ++i) {
+                const vertex = vertices[i];
+                if (vertex.isActive) {
+                    const p1 = vertex.prev!.point;
+                    const p2 = vertex.point;
+                    const p3 = vertex.next!.point;
+                    if (Math.abs(area(p1, p2, p3)) > 1e-5) {
+                        throw new Error('Failed to find ear. There may be self-intersection in the polygon.');
+                    }
+                }
+            }
+            break;
         }
 
         triangles.push([ear.prev!.point, ear.point, ear.next!.point]);
@@ -267,13 +341,17 @@ export function triangulate(polygon: Contour, doNotCheckOrdering: boolean = fals
         ear.isActive = false;
         ear.prev!.next = ear.next;
         ear.next!.prev = ear.prev;
+        ear.prev!.shouldUpdate = true;
+        ear.next!.shouldUpdate = true;
+        removeCollinearOrDuplicate(ear.next!);
 
         if (i === len - 4) {
             break;
         }
 
-        updateVertex(ear.prev!);
-        updateVertex(ear.next!);
+        for (let i = 0; i < len; ++i) {
+            updateVertex(vertices[i], vertices);
+        }
     }
 
     for (let i = 0; i < len; ++i) {
@@ -281,7 +359,12 @@ export function triangulate(polygon: Contour, doNotCheckOrdering: boolean = fals
         if (vertex.isActive) {
             vertex.prev!.isActive = false;
             vertex.next!.isActive = false;
-            triangles.push([vertex.prev!.point, vertex.point, vertex.next!.point]);
+            const p1 = vertex.prev!.point;
+            const p2 = vertex.point;
+            const p3 = vertex.next!.point;
+            if (Math.abs(area(p1, p2, p3)) > 1e-5) {
+                triangles.push([p1, p2, p3]);
+            }
         }
     }
 
@@ -311,8 +394,9 @@ export function convexPartition(polygon: Contour, doNotCheckOrdering: boolean = 
     const ret: Contour[] = [];
 
     const triangles = triangulate(polygon, doNotCheckOrdering);
-    for (let iTri1 = 0; iTri1 < triangles.length; ++iTri1) {
-        let poly = triangles.splice(iTri1, 1)[0];
+
+    for (; triangles.length;) {
+        let poly = triangles.splice(0, 1)[0];
 
         for (let iPoly = 0, polyLen = poly.length; iPoly < polyLen; ++iPoly) {
             const diag1 = poly[iPoly];
@@ -357,7 +441,6 @@ export function convexPartition(polygon: Contour, doNotCheckOrdering: boolean = 
             iPoly = -1;
 
             triangles.splice(iTri2, 1);
-            iTri1 = -1;
         }
 
         ret.push(poly);

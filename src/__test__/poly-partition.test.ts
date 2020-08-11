@@ -59,42 +59,99 @@ function createRegular(num: number, radius: number, dx: number = 0, dy: number =
     return vertices;
 }
 
-const polygon = createRegular(10, 100, 0, 0);
-const hole1 = createRegular(10, 25, 60, 0).reverse();
-const hole2 = createRegular(3, 25, -25, 20).reverse();
-const polygonArea = signedArea(polygon);
-const hole1Area = signedArea(hole1);
-const hole2Area = signedArea(hole2);
-const expectedArea = polygonArea + hole1Area + hole2Area;
+type Testcase = {
+    polygon: Contour,
+    holes: Contour[]
+};
 
-const merged = removeHoles(polygon, [hole1, hole2], true);
+const testcase: Testcase[] = [
+    {
+        polygon: createRegular(10, 100, 0, 0),
+        holes: [
+            createRegular(10, 25, 60, 0).reverse(),
+            createRegular(3, 25, -25, 20).reverse()
+        ]
+    },
+    {
+        polygon: [
+            {x: 0, y: 0}, {x: 3, y: 0}, {x: 3, y: 2}, {x: 2, y: 2}, {x: 2, y: 1}, {x: 1, y: 1},
+            {x: 1, y: 2}, {x: 2, y: 2}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 1, y: 4}, {x: -2, y: 4},
+            {x: -2, y: 1}, {x: 0, y: 1}
+        ],
+        holes: [
+            [{x: 0, y: 2}, {x: -1, y: 2}, {x: -1, y: 3}, {x: 0, y: 3}]
+        ]
+    },
+    {
+        polygon: [
+            {x: 0, y: 0}, {x: 3, y: 0}, {x: 3, y: 3}, {x: 1, y: 3}, {x: 1, y: 4}, {x: -2, y: 4},
+            {x: -2, y: 1}, {x: 0, y: 1}
+        ],
+        holes: [
+            [{x: 1, y: 1}, {x: 1, y: 2}, {x: 2, y: 2}, {x: 2, y: 1}],
+            [{x: 0, y: 2}, {x: -1, y: 2}, {x: -1, y: 3}, {x: 0, y: 3}]
+        ]
+    },
+    {
+        polygon: [
+            {x: 2, y: 0}, {x: 3, y: 0}, {x: 3, y: 2}, {x: 2, y: 2}, {x: 2, y: 3}, {x: 0, y: 3},
+            {x: 0, y: 2}, {x: 1, y: 2}, {x: 1, y: 1}, {x: 2, y: 1}
+        ],
+        holes: []
+    },
+    {
+        polygon: [
+            {x: 0, y: -1}, {x: 0, y: 0}, {x: -3, y: 0}, {x: -3, y: -1}, {x: -4, y: -1}, {x: -4, y: -4},
+            {x: -3, y: -4}, {x: -3, y: -2}, {x: -2, y: -2}, {x: -2, y: -1}
+        ],
+        holes: []
+    },
+    {
+        polygon: [
+            {x: 0, y: 0}, {x: 3, y: 0}, {x: 3, y: 3}, {x: 1, y: 3}, {x: 1, y: 2}, {x: 2, y: 2},
+            {x: 2, y: 1}, {x: 0, y: 1}
+        ],
+        holes: []
+    }
+];
 
-test('removeHoles', () => {
-    expect(equals(signedArea(merged), expectedArea)).toBe(true);
-    expect(isClockwise(merged)).toBe(false);
-});
+testcase.forEach((testcase, index) => {
+    const polygonArea = signedArea(testcase.polygon);
+    const holesArea = testcase.holes.map(signedArea).reduce((sum, curr) => (sum + curr), 0);
+    const expectedArea = polygonArea + holesArea;
 
-test('triangulate', () => {
-    const triangles = triangulate(merged, true);
-    triangles.forEach(triangle => {
-        expect(isClockwise(triangle)).toBe(false);
-    });
-    let areaSum = 0;
-    triangles.forEach(triangle => {
-        areaSum += signedArea(triangle);
-    });
-    expect(equals(areaSum, expectedArea)).toBe(true);
-});
+    const merged = removeHoles(testcase.polygon, testcase.holes, true);
 
-test('convexPartition', () => {
-    const polygons = convexPartition(merged, true);
-    polygons.forEach(polygon => {
-        expect(isClockwise(polygon)).toBe(false);
-        expect(isConvex(polygon)).toBe(true);
+    test(`removeHoles [${index}]`, () => {
+        expect(equals(signedArea(merged), expectedArea)).toBe(true);
+        expect(isClockwise(merged)).toBe(false);
     });
-    let areaSum = 0;
-    polygons.forEach(polygon => {
-        areaSum += signedArea(polygon);
+
+    test(`triangulate [${index}]`, () => {
+        const triangles = triangulate(merged, true);
+        triangles.forEach(triangle => {
+            expect(isClockwise(triangle)).toBe(false);
+        });
+        let areaSum = 0;
+        triangles.forEach(triangle => {
+            areaSum += signedArea(triangle);
+        });
+        expect(equals(areaSum, expectedArea)).toBe(true);
     });
-    expect(equals(areaSum, expectedArea)).toBe(true);
+
+    test(`convexPartition [${index}]`, () => {
+        const polygons = convexPartition(merged, true);
+        polygons.forEach(polygon => {
+            expect(isClockwise(polygon)).toBe(false);
+            expect(isConvex(polygon)).toBe(true);
+        });
+        let areaSum = 0;
+        polygons.forEach(polygon => {
+            areaSum += signedArea(polygon);
+        });
+        if (!equals(areaSum, expectedArea)) {
+            console.log(testcase, areaSum, polygonArea, holesArea);
+        }
+        expect(equals(areaSum, expectedArea)).toBe(true);
+    });
 });
