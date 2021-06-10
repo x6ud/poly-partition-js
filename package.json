@@ -1,6 +1,6 @@
 {
   "name": "poly-partition",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Polygon convex partitioning and triangulation.",
   "main": "./lib/index.js",
   "typings": "./lib/index.d.ts",
@@ -15,12 +15,20 @@
     "triangulation",
     "earcut"
   ],
-  "author": "x6ud",
+  "author": {
+    "name": "x6ud",
+    "url": "https://github.com/x6ud"
+  },
+  "homepage": "https://github.com/x6ud/poly-partition-js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/x6ud/poly-partition-js.git"
+  },
   "license": "MIT",
   "devDependencies": {
-    "@types/jest": "^26.0.9",
-    "jest": "^26.2.2",
-    "ts-jest": "^26.1.4",
-    "typescript": "^3.9.7"
+    "@types/jest": "^26.0.23",
+    "jest": "^26.6.3",
+    "ts-jest": "^26.5.6",
+    "typescript": "^3.9.9"
   }
 }
