@@ -1,15 +1,22 @@
 {
-  "name": "poly-partition-js",
+  "name": "poly-partition",
   "version": "1.0.0",
   "description": "Polygon convex partitioning and triangulation.",
-  "main": "index.js",
+  "main": "./lib/index.js",
+  "typings": "./lib/index.d.ts",
   "scripts": {
     "build": "tsc",
     "test": "jest --config jestconfig.json"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "polygon",
+    "convex",
+    "partition",
+    "triangulation",
+    "earcut"
+  ],
+  "author": "x6ud",
+  "license": "MIT",
   "devDependencies": {
     "@types/jest": "^26.0.9",
     "jest": "^26.2.2",
