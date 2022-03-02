@@ -3,6 +3,7 @@ declare type Point = {
     y: number;
 };
 declare type Contour = Point[];
+export declare function isClockwise(polygon: Contour): boolean;
 /**
  * Removes holes from polygon by merging them with non-hole.
  */

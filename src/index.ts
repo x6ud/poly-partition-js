@@ -54,7 +54,7 @@ function intersects(p11: Point, p12: Point, p21: Point, p22: Point) {
     return !(dot11 * dot12 > 0 || dot21 * dot22 > 0);
 }
 
-function isClockwise(polygon: Contour) {
+export function isClockwise(polygon: Contour) {
     let sum = 0;
     for (let i = 0, len = polygon.length; i < len; ++i) {
         const p1 = polygon[i];
